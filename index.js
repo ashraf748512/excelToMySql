@@ -18,7 +18,7 @@ async function main() {
         dataRows.forEach(row => {
           // console.log("Row data ---> ",row)
           Object.keys(row).forEach(key => {
-            // console.log(key);
+            console.log(key);
             const value = row[key];
             if (typeof value === 'object' && value !== null) {
               row[key] = JSON.stringify(value);
