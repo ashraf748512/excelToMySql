@@ -1,0 +1,60 @@
+const XlsxReader = require('../excel-to-json/index.js');
+const Mustache = require('mustache');
+const path=require("path");
+const { connectToDatabase, insertData, createTableSchema } = require('./connection.js');
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+function convertExcelTypeToMySQLType(excelType) {
+    switch (excelType.toLowerCase()) {
+       
+        case 'number':
+            return 'INT';
+        case 'boolean':
+            return 'TINYINT(1)';
+        case 'date':
+            return 'DATE';
+        default:
+            return 'VARCHAR(255)';
+    }
+}
+ 
+async function insertExcelDataToMySql($filepath) {
+    const connection = await connectToDatabase();
+    const filePath = $filepath;
+    const fileName = path.basename(filePath, '.xlsx').toLowerCase();
+    let reader = new XlsxReader($filepath);
+ 
+    reader.extractSheetMetaData('all').then(($response) => {
+       
+        $response.columnMetaData = $response.columnMetaData.map(column => ({
+            column_name: column.column_name,
+            data_type: convertExcelTypeToMySQLType(column.data_type)
+        }));
+ 
+        let $sql = `CREATE TABLE IF NOT EXISTS ${fileName} (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            {{#columnMetaData}}
+                {{column_name}} {{data_type}},
+            {{/columnMetaData}}`;
+ 
+        const schema = Mustache.render($sql, $response);
+        let newSchema=schema.substring(0,schema.length-3);
+        newSchema +='));'
+        // console.log( newSchema);
+        // console.log($response.data)
+ 
+        createTableSchema(connection, newSchema);
+ 
+        const columnNames = $response.columnMetaData.map(column => column.column_name);
+ 
+        const stat = insertData(connection, fileName, $response.data, columnNames);
+        // console.log(stat);
+    });
+}
+ 
+module.exports=insertExcelDataToMySql;
